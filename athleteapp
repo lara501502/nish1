@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athlete App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #ffffff;
+            background-color: #1a2a3a;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #ff7f00;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            padding: 10px;
+            border-bottom: 2px solid #ff7f00;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 20px;
+            border: 2px solid #ff7f00;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            border: 1px solid #2a3a4a;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #ff7f00;
+            color: #1a2a3a;
+            cursor: pointer;
+        }
+        tr:nth-child(even) {
+            background-color: #2a3a4a;
+        }
+        tr:nth-child(odd) {
+            background-color: #1a2a3a;
+        }
+        button {
+            background-color: #ff7f00;
+            color: #1a2a3a;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff9f3f;
+        }
+        input[type="text"], input[type="number"], input[type="date"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #2a3a4a;
+            border: 1px solid #ff7f00;
+            color: #ffffff;
+            border-radius: 5px;
+        }
+        .form-container {
+            background-color: #2a3a4a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: 2px solid #ff7f00;
+        }
+        .top-right {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .button-group button {
+            flex: 1;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-right">
+        <button onclick="saveData()">Save Data</button>
+        <input type="file" id="loadFile" accept=".json" style="display: none;">
+        <button onclick="document.getElementById('loadFile').click()">Load Data</button>
+    </div>
+
+    <h1>Athlete App</h1>
+    
+    <h2>Event Results</h2>
+    <div id="eventTables"></div>
+
+    <div class="form-container">
+        <h3>Add/Update Event Result</h3>
+        <select id="eventSelect"></select>
+        <input type="text" id="athleteName" placeholder="Athlete Name">
+        <input type="text" id="result" placeholder="Result">
+        <div class="button-group">
+            <button onclick="addUpdateResult()">Add/Update Result</button>
+            <button onclick="finishEvent()">Finish Event</button>
+        </div>
+    </div>
+
+    <h2>Overall Medals per Athlete</h2>
+    <table id="medalTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Gold</th>
+                <th>Silver</th>
+                <th>Bronze</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody id="medalTableBody"></tbody>
+    </table>
+
+    <h2>Athlete Attendance</h2>
+    <table id="attendanceTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Present</th>
+            </tr>
+        </thead>
+        <tbody id="attendanceTableBody"></tbody>
+    </table>
+
+    <div class="form-container">
+        <h3>Add Attendance Record</h3>
+        <input type="text" id="athleteNameAttendance" placeholder="Athlete Name">
+        <input type="date" id="dateAttendance">
+        <select id="presentAttendance">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+        </select>
+        <button onclick="addAttendance()">Add Attendance</button>
+    </div>
+
+    <script>
+        const events = [
+            "Football", "Penalty Shootouts", "50m race", "Cricket Throwing",
+            "4X50m relay", "Standing Jump", "Nerf Throw", "Shotput",
+            "100m race", "Badminton", "Table Tennis"
+        ];
+        const timeBasedEvents = ["100m race", "50m race", "4X50m relay"];
+        let athletes = [];
+
+        function createValidId(name) {
+            return name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        }
+
+        function createEventTables() {
+            const container = document.getElementById("eventTables");
+            const eventSelect = document.getElementById("eventSelect");
+            if (!container || !eventSelect) return;
+
+            events.forEach(event => {
+                const eventDiv = document.createElement("div");
+                const validId = createValidId(event);
+                eventDiv.innerHTML = `
+                    <h3>${event}</h3>
+                    <table id="table_${validId}">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Result</th>
+                                <th>Medal</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                `;
+                container.appendChild(eventDiv);
+
+                const option = document.createElement("option");
+                option.value = event;
+                option.textContent = event;
+                eventSelect.appendChild(option);
+            });
+        }
+
+        function renderTables() {
+            events.forEach(event => {
+                const validId = createValidId(event);
+                const tableBody = document.querySelector(`#table_${validId} tbody`);
+                if (tableBody) {
+                    const athletesWithResults = athletes.filter(athlete => athlete.results && athlete.results[event]);
+                    
+                    athletesWithResults.sort((a, b) => {
+                        const resultA = parseFloat(a.results[event]);
+                        const resultB = parseFloat(b.results[event]);
+                        
+                        if (timeBasedEvents.includes(event)) {
+                            return resultA - resultB;
+                        } else {
+                            return resultB - resultA;
+                        }
+                    });
+
+                    tableBody.innerHTML = "";
+                    athletesWithResults.forEach((athlete, index) => {
+                        const row = tableBody.insertRow();
+                        row.insertCell(0).textContent = athlete.name;
+                        row.insertCell(1).textContent = athlete.results[event];
+                        if (index < 3 && athlete.medals && athlete.medals[event]) {
+                            const medalCell = row.insertCell(2);
+                            medalCell.textContent = ['🥇', '🥈', '🥉'][['gold', 'silver', 'bronze'].indexOf(athlete.medals[event])];
+                        }
+                    });
+                }
+            });
+            renderMedalTable();
+            renderAttendanceTable();
+        }
+
+        function updateMedalsForEvent(event, athletesWithResults) {
+            athletesWithResults.slice(0, 3).forEach((athlete, index) => {
+                if (!athlete.medals) {
+                    athlete.medals = { gold: 0, silver: 0, bronze: 0 };
+                }
+                if (athlete.medals[event]) {
+                    athlete.medals[athlete.medals[event]]--;
+                }
+                const medalType = ['gold', 'silver', 'bronze'][index];
+                athlete.medals[medalType]++;
+                athlete.medals[event] = medalType;
+            });
+        }
+
+        function renderMedalTable() {
+            const tableBody = document.getElementById("medalTableBody");
+            if (tableBody) {
+                const sortedAthletes = athletes
+                    .filter(athlete => athlete.medals)
+                    .sort((a, b) => {
+                        if (a.medals.gold !== b.medals.gold) {
+                            return b.medals.gold - a.medals.gold;
+                        } else if (a.medals.silver !== b.medals.silver) {
+                            return b.medals.silver - a.medals.silver;
+                        } else {
+                            return b.medals.bronze - a.medals.bronze;
+                        }
+                    });
+
+                tableBody.innerHTML = "";
+                sortedAthletes.forEach(athlete => {
+                    const row = tableBody.insertRow();
+                    row.insertCell(0).textContent = athlete.name;
+                    row.insertCell(1).textContent = athlete.medals.gold || 0;
+                    row.insertCell(2).textContent = athlete.medals.silver || 0;
+                    row.insertCell(3).textContent = athlete.medals.bronze || 0;
+                    row.insertCell(4).textContent = (athlete.medals.gold || 0) + (athlete.medals.silver || 0) + (athlete.medals.bronze || 0);
+                });
+            }
+        }
+
+        function renderAttendanceTable() {
+            const tableBody = document.getElementById("attendanceTableBody");
+            if (tableBody) {
+                tableBody.innerHTML = "";
+                athletes.forEach(athlete => {
+                    if (athlete.attendance) {
+                        athlete.attendance.forEach(record => {
+                            const row = tableBody.insertRow();
+                            row.insertCell(0).textContent = athlete.name;
+                            row.insertCell(1).textContent = record.date;
+                            row.insertCell(2).textContent = record.present;
+                        });
+                    }
+                });
+            }
+        }
+
+        function addUpdateResult() {
+            const event = document.getElementById("eventSelect").value;
+            const name = document.getElementById("athleteName").value;
+            const result = document.getElementById("result").value;
+
+            if (name && result) {
+                let athlete = athletes.find(a => a.name.toLowerCase() === name.toLowerCase());
+                if (!athlete) {
+                    athlete = { name: name, results: {} };
+                    athletes.push(athlete);
+                }
+                if (!athlete.results) {
+                    athlete.results = {};
+                }
+                athlete.results[event] = result;
+
+                renderTables();
+            }
+        }
+
+        function finishEvent() {
+            const event = document.getElementById("eventSelect").value;
+            const athletesWithResults = athletes.filter(athlete => athlete.results && athlete.results[event]);
+            
+            athletesWithResults.sort((a, b) => {
+                const resultA = parseFloat(a.results[event]);
+                const resultB = parseFloat(b.results[event]);
+                
+                if (timeBasedEvents.includes(event)) {
+                    return resultA - resultB;
+                } else {
+                    return resultB - resultA;
+                }
+            });
+
+            updateMedalsForEvent(event, athletesWithResults);
+            renderTables();
+            alert(`Event "${event}" has been finished and medals have been awarded.`);
+        }
+
+        function addAttendance() {
+            const name = document.getElementById("athleteNameAttendance").value;
+            const date = document.getElementById("dateAttendance").value;
+            const present = document.getElementById("presentAttendance").value;
+
+            if (name && date) {
+                let athlete = athletes.find(a => a.name.toLowerCase() === name.toLowerCase());
+                if (!athlete) {
+                    athlete = { name: name, attendance: [] };
+                    athletes.push(athlete);
+                }
+                if (!athlete.attendance) {
+                    athlete.attendance = [];
+                }
+
+                athlete.attendance.push({ date, present });
+
+                renderTables();
+            }
+        }
+
+        function saveData() {
+            const data = JSON.stringify(athletes);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'athlete_data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        athletes = JSON.parse(e.target.result);
+                        renderTables();
+                    } catch (error) {
+                        console.error("Error parsing JSON:", error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            createEventTables();
+            renderTables();
+
+            const loadFileElement = document.getElementById('loadFile');
+            if (loadFileElement) {
+                loadFileElement.addEventListener('change', loadData);
+            } else {
+                console.error("Load file input element not found");
+            }
+        });
+    </script>
+</body>
+</html>
